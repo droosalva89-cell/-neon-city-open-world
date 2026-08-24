@@ -2,24 +2,34 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Neon City Open World</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>NEON CITY</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070b12;font-family:Arial,sans-serif}
-canvas{display:block;width:100%;height:100%;touch-action:none}
-#hud{position:fixed;top:14px;left:14px;right:14px;display:none;justify-content:space-between;color:#fff;font-weight:bold;font-size:16px;text-shadow:0 0 8px #00eaff;pointer-events:none}
-#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:linear-gradient(#050810,#101827);color:white}
-.card{padding:28px;width:min(90%,420px)}
-h1{font-size:42px;margin:0 0 8px;color:#00eaff;text-shadow:0 0 20px #00eaff}
-p{font-size:18px;color:#ddd}
-button{border:2px solid #00eaff;background:#07131d;color:#00eaff;border-radius:18px;padding:16px 55px;font-size:22px;font-weight:bold;box-shadow:0 0 20px #00eaff;margin-top:20px}
-#controls{display:none;position:fixed;inset:0;pointer-events:none}
-.ctrl{position:absolute;width:64px;height:64px;border:2px solid #ffffff66;border-radius:50%;background:#07131dcc;color:white;font-size:28px;display:flex;align-items:center;justify-content:center;pointer-events:auto;user-select:none}
-#up{left:78px;bottom:125px}#down{left:78px;bottom:20px}
-#left{left:10px;bottom:72px}#right{left:146px;bottom:72px}
-#action{right:28px;bottom:72px;width:82px;height:82px;border-color:#00eaff;color:#00eaff}
-#hint{position:fixed;bottom:8px;left:0;right:0;text-align:center;color:#ffffff88;font-size:12px;pointer-events:none}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050509;font-family:Arial;color:white}
+canvas{display:block;width:100vw;height:100vh;background:#111}
+#hud{
+ position:fixed;top:15px;left:15px;right:15px;
+ display:flex;justify-content:space-between;
+ pointer-events:none;font-weight:bold;font-size:16px;
+ text-shadow:0 0 8px #00eaff
+}
+#controls{position:fixed;inset:0;pointer-events:none}
+.btn{
+ position:absolute;width:64px;height:64px;border:2px solid #00eaff;
+ background:#07141dcc;border-radius:16px;color:#fff;
+ font-size:28px;pointer-events:auto;
+ box-shadow:0 0 12px #00eaff55
+}
+#up{left:78px;bottom:125px}
+#down{left:78px;bottom:35px}
+#left{left:10px;bottom:80px}
+#right{left:146px;bottom:80px}
+#action{right:25px;bottom:80px;width:82px;height:82px;border-radius:50%;font-size:18px}
+#hint{
+ position:fixed;bottom:8px;left:0;right:0;
+ text-align:center;color:#aaa;font-size:13px
+}
 </style>
 </head>
 <body>
@@ -27,362 +37,208 @@ button{border:2px solid #00eaff;background:#07131d;color:#00eaff;border-radius:1
 <canvas id="game"></canvas>
 
 <div id="hud">
-  <span id="money">💰 $0</span>
-  <span id="mission">MISSION: Explore the city</span>
-</div>
-
-<div id="menu">
-  <div class="card">
-    <h1>NEON CITY</h1>
-    <p>OPEN WORLD</p>
-    <p>🚗 Drive around the city<br>🏙️ Explore the streets<br>⭐ Collect cash</p>
-    <button id="start">START GAME</button>
-  </div>
+ <span>💰 $<b id="money">500</b></span>
+ <span>⭐ <b id="wanted">0</b></span>
+ <span>🚗 NEON CITY</span>
 </div>
 
 <div id="controls">
-  <div class="ctrl" id="up">▲</div>
-  <div class="ctrl" id="down">▼</div>
-  <div class="ctrl" id="left">◀</div>
-  <div class="ctrl" id="right">▶</div>
-  <div class="ctrl" id="action">⚡</div>
+ <button class="btn" id="up">▲</button>
+ <button class="btn" id="down">▼</button>
+ <button class="btn" id="left">◀</button>
+ <button class="btn" id="right">▶</button>
+ <button class="btn" id="action">ACTION</button>
 </div>
-<div id="hint">Use the buttons to drive • Collect 💰</div>
+
+<div id="hint">Drive around Neon City • ACTION to interact</div>
 
 <script>
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-let W=innerWidth,H=innerHeight;
+let W,H;
 function resize(){
-  W=canvas.width=innerWidth;
-  H=canvas.height=innerHeight;
+ W=canvas.width=innerWidth;
+ H=canvas.height=innerHeight;
 }
-addEventListener("resize",resize); resize();
+addEventListener("resize",resize);
+resize();
 
-const keys={up:false,down:false,left:false,right:false};
-let running=false;
-let money=0;
-let speed=0;
-
-const world={w:3000,h:2200};
+const keys={};
+let money=500,wanted=0;
 
 const player={
-  x:1500,y:1100,
-  a:0,
-  r:18
+ x:0,y:0,angle:0,speed:0
 };
 
-const buildings=[];
 const cars=[];
-const cash=[];
-const trees=[];
+const npcs=[];
 
-function rand(a,b){return Math.random()*(b-a)+a}
-
-function makeCity(){
-  buildings.length=0;
-  cars.length=0;
-  cash.length=0;
-  trees.length=0;
-
-  // buildings
-  for(let x=100;x<world.w-100;x+=300){
-    for(let y=100;y<world.h-100;y+=300){
-      if(Math.random()<.8){
-        buildings.push({
-          x:x+35+rand(-15,15),
-          y:y+35+rand(-15,15),
-          w:180+rand(0,50),
-          h:150+rand(0,70)
-        });
-      }
-    }
-  }
-
-  // parked cars
-  for(let i=0;i<35;i++){
-    cars.push({
-      x:rand(100,world.w-100),
-      y:rand(100,world.h-100),
-      a:Math.random()<.5?0:Math.PI/2,
-      color:["#ff315a","#00d9ff","#ffd21f","#8cff42","#a855ff"][i%5]
-    });
-  }
-
-  // money
-  for(let i=0;i<28;i++){
-    cash.push({
-      x:rand(80,world.w-80),
-      y:rand(80,world.h-80),
-      got:false
-    });
-  }
-
-  // trees
-  for(let i=0;i<70;i++){
-    trees.push({x:rand(30,world.w-30),y:rand(30,world.h-30)});
-  }
+for(let i=0;i<18;i++){
+ cars.push({
+  x:(Math.random()-.5)*2200,
+  y:(Math.random()-.5)*1600,
+  a:Math.random()*Math.PI*2,
+  color:["#ff1744","#00eaff","#ffd600","#9c27b0"][i%4]
+ });
 }
-makeCity();
+
+for(let i=0;i<25;i++){
+ npcs.push({
+  x:(Math.random()-.5)*1800,
+  y:(Math.random()-.5)*1400,
+  a:Math.random()*Math.PI*2
+ });
+}
 
 function road(x,y){
-  return Math.abs((x%300)-150)<55 || Math.abs((y%300)-150)<55;
+ const gx=Math.abs((x%400)-200);
+ const gy=Math.abs((y%400)-200);
+ return gx<55 || gy<55;
 }
 
-function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function drawWorld(){
+ ctx.fillStyle="#11131a";
+ ctx.fillRect(0,0,W,H);
+
+ const scale=1;
+ ctx.save();
+ ctx.translate(W/2-player.x,H/2-player.y);
+
+ // city blocks
+ for(let x=-1600;x<=1600;x+=400){
+  for(let y=-1200;y<=1200;y+=400){
+   ctx.fillStyle="#181b24";
+   ctx.fillRect(x+65,y+65,270,270);
+  }
+ }
+
+ // roads
+ ctx.strokeStyle="#292d38";
+ ctx.lineWidth=110;
+ for(let x=-2000;x<=2000;x+=400){
+  ctx.beginPath();ctx.moveTo(x,-1500);ctx.lineTo(x,1500);ctx.stroke();
+ }
+ for(let y=-1600;y<=1600;y+=400){
+  ctx.beginPath();ctx.moveTo(-2200,y);ctx.lineTo(2200,y);ctx.stroke();
+ }
+
+ // road lines
+ ctx.strokeStyle="#777";
+ ctx.lineWidth=3;
+ ctx.setLineDash([25,25]);
+
+ for(let x=-2000;x<=2000;x+=400){
+  ctx.beginPath();ctx.moveTo(x,-1500);ctx.lineTo(x,1500);ctx.stroke();
+ }
+ for(let y=-1600;y<=1600;y+=400){
+  ctx.beginPath();ctx.moveTo(-2200,y);ctx.lineTo(2200,y);ctx.stroke();
+ }
+ ctx.setLineDash([]);
+
+ // buildings
+ for(let x=-1600;x<=1600;x+=400){
+  for(let y=-1200;y<=1200;y+=400){
+   ctx.fillStyle="#242936";
+   ctx.fillRect(x+85,y+85,230,230);
+
+   ctx.fillStyle="#00eaff";
+   for(let wx=x+105;wx<x+300;wx+=38)
+    for(let wy=y+105;wy<y+290;wy+=42)
+     ctx.fillRect(wx,wy,12,16);
+  }
+ }
+
+ // NPCs
+ for(const n of npcs){
+  ctx.fillStyle="#ffb199";
+  ctx.beginPath();
+  ctx.arc(n.x,n.y,8,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle="#55aaff";
+  ctx.fillRect(n.x-6,n.y+8,12,18);
+ }
+
+ // cars
+ for(const c of cars){
+  ctx.save();
+  ctx.translate(c.x,c.y);
+  ctx.rotate(c.a);
+  ctx.fillStyle=c.color;
+  ctx.shadowBlur=12;
+  ctx.shadowColor=c.color;
+  ctx.fillRect(-22,-12,44,24);
+  ctx.fillStyle="#111";
+  ctx.fillRect(-12,-9,20,8);
+  ctx.restore();
+ }
+
+ // player car
+ ctx.save();
+ ctx.translate(player.x,player.y);
+ ctx.rotate(player.angle);
+ ctx.shadowBlur=20;
+ ctx.shadowColor="#00eaff";
+ ctx.fillStyle="#00eaff";
+ ctx.fillRect(-28,-15,56,30);
+ ctx.fillStyle="#111";
+ ctx.fillRect(-12,-11,22,9);
+ ctx.fillStyle="#fff";
+ ctx.fillRect(22,-8,5,6);
+ ctx.fillRect(22,2,5,6);
+ ctx.restore();
+
+ ctx.restore();
+}
 
 function update(){
-  if(!running)return;
+ if(keys.up||keys.w) player.speed+=0.18;
+ if(keys.down||keys.s) player.speed-=0.12;
 
-  let accel=0;
-  if(keys.up)accel=.18;
-  if(keys.down)accel=-.13;
+ player.speed*=0.94;
+ player.speed=Math.max(-3,Math.min(7,player.speed));
 
-  speed+=accel;
-  speed*=.965;
-  speed=clamp(speed,-3.2,7);
+ if(keys.left||keys.a) player.angle-=0.045*(Math.abs(player.speed)/3+.3);
+ if(keys.right||keys.d) player.angle+=0.045*(Math.abs(player.speed)/3+.3);
 
-  if(keys.left)player.a-=.055*(Math.abs(speed)/4+.4);
-  if(keys.right)player.a+=.055*(Math.abs(speed)/4+.4);
+ player.x+=Math.cos(player.angle)*player.speed;
+ player.y+=Math.sin(player.angle)*player.speed;
 
-  player.x+=Math.cos(player.a)*speed;
-  player.y+=Math.sin(player.a)*speed;
-
-  player.x=clamp(player.x,25,world.w-25);
-  player.y=clamp(player.y,25,world.h-25);
-
-  for(const c of cash){
-    if(!c.got && Math.hypot(player.x-c.x,player.y-c.y)<35){
-      c.got=true;
-      money+=100;
-      document.getElementById("money").textContent="💰 $"+money;
-    }
-  }
+ drawWorld();
+ requestAnimationFrame(update);
 }
 
-function camera(){
-  return {
-    x:clamp(player.x-W/2,0,world.w-W),
-    y:clamp(player.y-H/2,0,world.h-H)
-  };
+function action(){
+ money+=50;
+ wanted=Math.min(5,wanted+1);
+ document.getElementById("money").textContent=money;
+ document.getElementById("wanted").textContent=wanted;
 }
 
-function drawRoads(cam){
-  ctx.fillStyle="#16202a";
-  ctx.fillRect(-cam.x,-cam.y,world.w,world.h);
-
-  ctx.strokeStyle="#263541";
-  ctx.lineWidth=100;
-
-  for(let x=150;x<world.w;x+=300){
-    ctx.beginPath();
-    ctx.moveTo(x-cam.x,-cam.y);
-    ctx.lineTo(x-cam.x,world.h-cam.y);
-    ctx.stroke();
-  }
-
-  for(let y=150;y<world.h;y+=300){
-    ctx.beginPath();
-    ctx.moveTo(-cam.x,y-cam.y);
-    ctx.lineTo(world.w-cam.x,y-cam.y);
-    ctx.stroke();
-  }
-
-  ctx.strokeStyle="#e9d86b";
-  ctx.lineWidth=3;
-  ctx.setLineDash([25,25]);
-
-  for(let x=150;x<world.w;x+=300){
-    ctx.beginPath();
-    ctx.moveTo(x-cam.x,-cam.y);
-    ctx.lineTo(x-cam.x,world.h-cam.y);
-    ctx.stroke();
-  }
-
-  for(let y=150;y<world.h;y+=300){
-    ctx.beginPath();
-    ctx.moveTo(-cam.x,y-cam.y);
-    ctx.lineTo(world.w-cam.x,y-cam.y);
-    ctx.stroke();
-  }
-
-  ctx.setLineDash([]);
-}
-
-function drawBuildings(cam){
-  for(const b of buildings){
-    ctx.fillStyle="#10151d";
-    ctx.fillRect(b.x-cam.x,b.y-cam.y,b.w,b.h);
-
-    ctx.strokeStyle="#00a8c7";
-    ctx.lineWidth=2;
-    ctx.strokeRect(b.x-cam.x,b.y-cam.y,b.w,b.h);
-
-    for(let xx=b.x+20;xx<b.x+b.w-10;xx+=35){
-      for(let yy=b.y+20;yy<b.y+b.h-10;yy+=35){
-        ctx.fillStyle=Math.random()>.5?"#16d9e0":"#23333d";
-        ctx.fillRect(xx-cam.x,yy-cam.y,12,10);
-      }
-    }
-  }
-}
-
-function drawTrees(cam){
-  for(const t of trees){
-    if(!road(t.x,t.y)){
-      ctx.fillStyle="#153b2b";
-      ctx.beginPath();
-      ctx.arc(t.x-cam.x,t.y-cam.y,14,0,Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle="#245d3c";
-      ctx.beginPath();
-      ctx.arc(t.x-cam.x,t.y-cam.y-8,11,0,Math.PI*2);
-      ctx.fill();
-    }
-  }
-}
-
-function drawCars(cam){
-  for(const c of cars){
-    ctx.save();
-    ctx.translate(c.x-cam.x,c.y-cam.y);
-    ctx.rotate(c.a);
-    ctx.fillStyle=c.color;
-    ctx.fillRect(-22,-11,44,22);
-    ctx.fillStyle="#b9e8ff";
-    ctx.fillRect(-8,-8,16,16);
-    ctx.fillStyle="#111";
-    ctx.fillRect(-17,-14,10,5);
-    ctx.fillRect(7,-14,10,5);
-    ctx.fillRect(-17,9,10,5);
-    ctx.fillRect(7,9,10,5);
-    ctx.restore();
-  }
-}
-
-function drawCash(cam){
-  for(const c of cash){
-    if(c.got)continue;
-    const x=c.x-cam.x,y=c.y-cam.y;
-    ctx.fillStyle="#ffe600";
-    ctx.shadowColor="#ffe600";
-    ctx.shadowBlur=15;
-    ctx.beginPath();
-    ctx.arc(x,y,12,0,Math.PI*2);
-    ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.fillStyle="#111";
-    ctx.font="bold 14px Arial";
-    ctx.textAlign="center";
-    ctx.fillText("$",x,y+5);
-  }
-}
-
-function drawPlayer(cam){
-  ctx.save();
-  ctx.translate(player.x-cam.x,player.y-cam.y);
-  ctx.rotate(player.a);
-
-  ctx.shadowColor="#00eaff";
-  ctx.shadowBlur=20;
-  ctx.fillStyle="#00eaff";
-  ctx.fillRect(-23,-13,46,26);
-
-  ctx.shadowBlur=0;
-  ctx.fillStyle="#06202a";
-  ctx.fillRect(-7,-10,18,20);
-
-  ctx.fillStyle="#fff";
-  ctx.fillRect(17,-9,5,7);
-  ctx.fillRect(17,2,5,7);
-
-  ctx.restore();
-}
-
-function draw(){
-  ctx.clearRect(0,0,W,H);
-
-  const cam=camera();
-
-  ctx.fillStyle="#0a1118";
-  ctx.fillRect(0,0,W,H);
-
-  drawRoads(cam);
-  drawTrees(cam);
-  drawBuildings(cam);
-  drawCars(cam);
-  drawCash(cam);
-  drawPlayer(cam);
-
-  // minimap
-  const mw=130,mh=95;
-  const mx=W-mw-12,my=45;
-  ctx.fillStyle="#05080dcc";
-  ctx.fillRect(mx,my,mw,mh);
-  ctx.strokeStyle="#00eaff";
-  ctx.strokeRect(mx,my,mw,mh);
-
-  ctx.fillStyle="#ff315a";
-  ctx.beginPath();
-  ctx.arc(mx+(player.x/world.w)*mw,my+(player.y/world.h)*mh,4,0,Math.PI*2);
-  ctx.fill();
-
-  ctx.fillStyle="#fff";
-  ctx.font="12px Arial";
-  ctx.fillText("NEON CITY",mx+8,my+16);
-}
-
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-loop();
-
-function bind(id,key){
-  const el=document.getElementById(id);
-
-  const on=()=>{keys[key]=true};
-  const off=()=>{keys[key]=false};
-
-  el.addEventListener("touchstart",e=>{e.preventDefault();on()},{passive:false});
-  el.addEventListener("touchend",e=>{e.preventDefault();off()},{passive:false});
-  el.addEventListener("touchcancel",off);
-
-  el.addEventListener("mousedown",on);
-  el.addEventListener("mouseup",off);
-  el.addEventListener("mouseleave",off);
-}
-
-bind("up","up");
-bind("down","down");
-bind("left","left");
-bind("right","right");
-
-document.getElementById("action").addEventListener("touchstart",e=>{
-  e.preventDefault();
-  speed=7;
-},{passive:false});
-
-document.getElementById("action").addEventListener("mousedown",()=>{
-  speed=7;
+addEventListener("keydown",e=>{
+ keys[e.key.toLowerCase()]=true;
+ if(e.key===" ")action();
 });
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
-document.getElementById("start").addEventListener("click",()=>{
-  running=true;
-  document.getElementById("menu").style.display="none";
-  document.getElementById("hud").style.display="flex";
-  document.getElementById("controls").style.display="block";
-});
+function hold(id,key){
+ const b=document.getElementById(id);
+ b.addEventListener("pointerdown",e=>{
+  e.preventDefault();keys[key]=true;
+ });
+ ["pointerup","pointercancel","pointerleave"].forEach(ev=>{
+  b.addEventListener(ev,e=>keys[key]=false);
+ });
+}
 
-document.getElementById("start").addEventListener("touchstart",e=>{
-  e.preventDefault();
-  running=true;
-  document.getElementById("menu").style.display="none";
-  document.getElementById("hud").style.display="flex";
-  document.getElementById("controls").style.display="block";
-},{passive:false});
+hold("up","up");
+hold("down","down");
+hold("left","left");
+hold("right","right");
+
+document.getElementById("action").addEventListener("pointerdown",action);
+
+update();
 </script>
 </body>
 </html>
